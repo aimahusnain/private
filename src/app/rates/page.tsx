@@ -1,5 +1,10 @@
 "use client"
 
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
+import { format } from "date-fns"
 import { AppSidebar } from "@/components/ui/app-sidebar"
 import {
   Breadcrumb,
@@ -9,14 +14,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { Separator } from "@/components/ui/separator"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -36,24 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { format } from "date-fns"
-import { DollarSign, Moon, MoreHorizontal, Pencil, Plus, RefreshCw, Sun, Trash2, TrendingUp, Users } from 'lucide-react'
-import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import { Moon, Sun, Plus, MoreHorizontal, Pencil, Trash2, RefreshCw, DollarSign, Users, TrendingUp } from "lucide-react"
 
 // Define the Rate type based on your Prisma schema
 type Rate = {
@@ -91,12 +76,12 @@ export default function Page() {
       const response = await fetch("/api/rates")
       const data = await response.json()
       setRates(data)
-      
+
       // Calculate stats
       const uniqueClients = new Set(data.map((rate: Rate) => rate.clientName)).size
       const avgRate = data.length > 0 ? data.reduce((sum: number, rate: Rate) => sum + rate.rate, 0) / data.length : 0
       const highestRate = data.length > 0 ? Math.max(...data.map((rate: Rate) => rate.rate)) : 0
-      
+
       setStats({
         totalClients: uniqueClients,
         averageRate: avgRate,
@@ -133,10 +118,10 @@ export default function Page() {
         body: JSON.stringify({
           date: formData.date || new Date().toISOString(),
           clientName: formData.clientName,
-          rate: parseFloat(formData.rate),
+          rate: Number.parseFloat(formData.rate),
         }),
       })
-      
+
       if (response.ok) {
         setIsAddDialogOpen(false)
         setFormData({ date: "", clientName: "", rate: "" })
@@ -150,9 +135,9 @@ export default function Page() {
   // Update a rate
   const handleUpdateRate = async () => {
     if (!selectedRate) return
-    
+
     try {
-      const response = await fetch(`/api/rates/${selectedRate.id}`, {
+      const response = await fetch(`/api/rates?id=${selectedRate.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -160,10 +145,10 @@ export default function Page() {
         body: JSON.stringify({
           date: formData.date,
           clientName: formData.clientName,
-          rate: parseFloat(formData.rate),
+          rate: Number.parseFloat(formData.rate),
         }),
       })
-      
+
       if (response.ok) {
         setIsEditDialogOpen(false)
         setSelectedRate(null)
@@ -177,12 +162,12 @@ export default function Page() {
   // Delete a rate
   const handleDeleteRate = async () => {
     if (!selectedRate) return
-    
+
     try {
-      const response = await fetch(`/api/rates/${selectedRate.id}`, {
+      const response = await fetch(`/api/rates?id=${selectedRate.id}`, {
         method: "DELETE",
       })
-      
+
       if (response.ok) {
         setIsDeleteDialogOpen(false)
         setSelectedRate(null)
@@ -236,11 +221,7 @@ export default function Page() {
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="rounded-full"
           >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             <span className="sr-only">Toggle theme</span>
           </Button>
         </header>
@@ -296,11 +277,7 @@ export default function Page() {
                 <CardDescription>Manage your client rates</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={fetchRates}
-                >
+                <Button variant="outline" size="icon" onClick={fetchRates}>
                   <RefreshCw className="h-4 w-4" />
                 </Button>
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -313,20 +290,12 @@ export default function Page() {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Add New Rate</DialogTitle>
-                      <DialogDescription>
-                        Enter the details for the new client rate.
-                      </DialogDescription>
+                      <DialogDescription>Enter the details for the new client rate.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="grid gap-2">
                         <Label htmlFor="date">Date</Label>
-                        <Input
-                          id="date"
-                          name="date"
-                          type="date"
-                          value={formData.date}
-                          onChange={handleInputChange}
-                        />
+                        <Input id="date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="clientName">Client Name</Label>
@@ -339,19 +308,14 @@ export default function Page() {
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="rate">Rate ($)</Label>
-                        <Input
-                          id="rate"
-                          name="rate"
-                          value={formData.rate}
-                          onChange={handleInputChange}
-                        />
+                        <Input id="rate" name="rate" value={formData.rate} onChange={handleInputChange} />
                       </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button 
+                      <Button
                         className="bg-lime-600 hover:bg-lime-700"
                         onClick={handleAddRate}
                         disabled={!formData.clientName || !formData.rate}
@@ -373,11 +337,7 @@ export default function Page() {
               ) : rates.length === 0 ? (
                 <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
                   <p className="text-muted-foreground">No rates found</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setIsAddDialogOpen(true)}
-                    className="mt-2"
-                  >
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(true)} className="mt-2">
                     <Plus className="mr-2 h-4 w-4" />
                     Add your first rate
                   </Button>
@@ -396,9 +356,7 @@ export default function Page() {
                     <TableBody>
                       {rates.map((rate) => (
                         <TableRow key={rate.id}>
-                          <TableCell>
-                            {format(new Date(rate.date), "MMM d, yyyy")}
-                          </TableCell>
+                          <TableCell>{format(new Date(rate.date), "MMM d, yyyy")}</TableCell>
                           <TableCell>{rate.clientName}</TableCell>
                           <TableCell>${rate.rate.toFixed(2)}</TableCell>
                           <TableCell>
@@ -415,7 +373,7 @@ export default function Page() {
                                   <Pencil className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => openDeleteDialog(rate)}
                                   className="text-destructive focus:text-destructive"
                                 >
@@ -441,45 +399,27 @@ export default function Page() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Rate</DialogTitle>
-            <DialogDescription>
-              Update the rate details for {selectedRate?.clientName}.
-            </DialogDescription>
+            <DialogDescription>Update the rate details for {selectedRate?.clientName}.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-date">Date</Label>
-              <Input
-                id="edit-date"
-                name="date"
-                type="date"
-                value={formData.date}
-                onChange={handleInputChange}
-              />
+              <Input id="edit-date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-clientName">Client Name</Label>
-              <Input
-                id="edit-clientName"
-                name="clientName"
-                value={formData.clientName}
-                onChange={handleInputChange}
-              />
+              <Input id="edit-clientName" name="clientName" value={formData.clientName} onChange={handleInputChange} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-rate">Rate ($)</Label>
-              <Input
-                id="edit-rate"
-                name="rate"
-                value={formData.rate}
-                onChange={handleInputChange}
-              />
+              <Input id="edit-rate" name="rate" value={formData.rate} onChange={handleInputChange} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-lime-600 hover:bg-lime-700"
               onClick={handleUpdateRate}
               disabled={!formData.clientName || !formData.rate}
@@ -496,18 +436,14 @@ export default function Page() {
           <DialogHeader>
             <DialogTitle>Delete Rate</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the rate for {selectedRate?.clientName}?
-              This action cannot be undone.
+              Are you sure you want to delete the rate for {selectedRate?.clientName}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleDeleteRate}
-            >
+            <Button variant="destructive" onClick={handleDeleteRate}>
               Delete
             </Button>
           </DialogFooter>
@@ -516,3 +452,4 @@ export default function Page() {
     </SidebarProvider>
   )
 }
+
