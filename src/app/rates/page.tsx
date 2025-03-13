@@ -1,8 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useTheme } from "next-themes"
-import { format } from "date-fns"
 import { AppSidebar } from "@/components/ui/app-sidebar"
 import {
   Breadcrumb,
@@ -12,29 +9,14 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -54,7 +36,24 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Moon, Sun, Plus, MoreHorizontal, Pencil, Trash2, RefreshCw, DollarSign, Users, TrendingUp } from 'lucide-react'
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { format } from "date-fns"
+import { DollarSign, Moon, MoreHorizontal, Pencil, Plus, RefreshCw, Sun, Trash2, TrendingUp, Users } from 'lucide-react'
+import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 
 // Define the Rate type based on your Prisma schema
 type Rate = {
