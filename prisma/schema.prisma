@@ -1,0 +1,15 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Rates {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  date      DateTime @default(now()) // Stores the date
+  clientName String  // Stores the client's name
+  rate      Float    // Stores the rate as a number
+}
