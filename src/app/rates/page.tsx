@@ -233,55 +233,55 @@ export default function Page() {
         <div className="flex flex-1 flex-col gap-4 p-4 pt-6">
           {/* Stats Cards */}
           <div className="grid gap-4 md:grid-cols-4">
-            <Card className="border-lime-500/20">
+            <Card className="border-blue-500/20">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold">{stats.totalClients}</div>
-                  <div className="rounded-full bg-lime-500/10 p-2 text-lime-500">
+                  <div className="rounded-full bg-blue-500/10 p-2 text-blue-500">
                     <Users className="h-4 w-4" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-lime-500/20">
+            <Card className="border-blue-500/20">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Average Rate</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold">${stats.averageRate.toFixed(2)}</div>
-                  <div className="rounded-full bg-lime-500/10 p-2 text-lime-500">
+                  <div className="rounded-full bg-blue-500/10 p-2 text-blue-500">
                     <DollarSign className="h-4 w-4" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-lime-500/20">
+            <Card className="border-blue-500/20">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Highest Rate</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold">${stats.highestRate.toFixed(2)}</div>
-                  <div className="rounded-full bg-lime-500/10 p-2 text-lime-500">
+                  <div className="rounded-full bg-blue-500/10 p-2 text-blue-500">
                     <TrendingUp className="h-4 w-4" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-lime-500/20">
+            <Card className="border-blue-500/20">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold">
-                    {rates.reduce((sum, rate) => sum + (rate.noOfStaff || 0), 0)}
+                    ...
                   </div>
-                  <div className="rounded-full bg-lime-500/10 p-2 text-lime-500">
+                  <div className="rounded-full bg-blue-500/10 p-2 text-blue-500">
                     <Users className="h-4 w-4" />
                   </div>
                 </div>
@@ -302,7 +302,7 @@ export default function Page() {
                 </Button>
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-lime-600 cursor-pointer text-white hover:bg-lime-500">
+                    <Button className="bg-blue-600 cursor-pointer text-white hover:bg-blue-500">
                       <Plus className="mr-2 h-4 w-4" />
                       Add Rate
                     </Button>
@@ -347,7 +347,7 @@ export default function Page() {
                         Cancel
                       </Button>
                       <Button
-                        className="bg-lime-600 hover:bg-lime-700"
+                        className="bg-blue-600 hover:bg-blue-700"
                         onClick={handleAddRate}
                         disabled={!formData.clientName || !formData.rate}
                       >
@@ -361,7 +361,7 @@ export default function Page() {
             <CardContent>
               {loading ? (
                 <div className="flex h-40 items-center justify-center">
-                  <div className="animate-spin text-lime-500">
+                  <div className="animate-spin text-blue-500">
                     <RefreshCw className="h-8 w-8" />
                   </div>
                 </div>
@@ -464,7 +464,7 @@ export default function Page() {
               Cancel
             </Button>
             <Button
-              className="bg-lime-600 hover:bg-lime-700"
+              className="bg-blue-600 hover:bg-blue-700"
               onClick={handleUpdateRate}
               disabled={!formData.clientName || !formData.rate}
             >

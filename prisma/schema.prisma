@@ -8,9 +8,15 @@ datasource db {
 }
 
 model Rates {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  date      DateTime @default(now()) // Stores the date
-  clientName String  // Stores the client's name
-  rate      Float    // Stores the rate as a number
-  noOfStaff Int
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  date       DateTime @default(now()) // Stores the date
+  clientName String // Stores the client's name
+  rate       Float // Stores the rate as a number
+  noOfStaff  Int
+}
+
+model Staff {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  name String
+  rate Float
 }
