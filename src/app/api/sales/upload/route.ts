@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 // Replace the client creation section with this code
 await processBatches(newClients, BATCH_SIZE, async (clientBatch) => {
     // First check which client names already exist to avoid duplicates
-    const clientNames = clientBatch.map(client => client.clientName.toLowerCase());
+    // const clientNames = clientBatch.map(client => client.clientName.toLowerCase());
     const existingClientNames = await prisma.rates.findMany({
       where: {
         clientName: {
