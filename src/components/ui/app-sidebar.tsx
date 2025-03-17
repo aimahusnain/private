@@ -46,8 +46,8 @@ const data = {
           url: "/rates",
         },
         {
-          title: "Staff",
-          url: "/staff",
+          title: "sales",
+          url: "/Sales",
         },
         {
           title: "Settings",
