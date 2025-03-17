@@ -174,7 +174,6 @@ export async function POST(request: Request) {
       const confirmAdd = true // In real app, this would come from the frontend
 
       if (confirmAdd) {
-        // Add clients in batches
 // Replace the client creation section with this code
 await processBatches(newClients, BATCH_SIZE, async (clientBatch) => {
     // First check which client names already exist to avoid duplicates
