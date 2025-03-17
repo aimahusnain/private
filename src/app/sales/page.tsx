@@ -173,8 +173,9 @@ const handleSelectChange = async (name: string, value: string) => {
         if (client?.rate) {
           setFormData(prev => ({
             ...prev,
-            clientRate: client.rate.toString(),
+            clientRate: client.rate ? client.rate.toString() : "0",  // Agar `rate` undefined ho, to "0" set karo
           }))
+          
         } else {
           // If we need to fetch the rate separately
           const response = await fetch(`/api/clients/${value}`)
