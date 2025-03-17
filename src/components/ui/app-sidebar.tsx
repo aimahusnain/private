@@ -40,7 +40,7 @@ const data = {
       url: "#",
       icon: SquareTerminal,
       isActive: true,
-      items: [
+      items: [  
         {
           title: "Rates",
           url: "/rates",

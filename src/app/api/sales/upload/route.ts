@@ -175,18 +175,40 @@ export async function POST(request: Request) {
 
       if (confirmAdd) {
         // Add clients in batches
-        await processBatches(newClients, BATCH_SIZE, async (clientBatch) => {
-          const clientData = clientBatch.map((client) => ({
-            clientName: client.clientName,
-            rate: 1, // Default rate
-            noOfStaff: 1, // Default staff count
-          }))
-
-          await prisma.rates.createMany({
-            data: clientData,
-            // skipDuplicates: true, // This is causing the error
-          })
-        })
+// Replace the client creation section with this code
+await processBatches(newClients, BATCH_SIZE, async (clientBatch) => {
+    // First check which client names already exist to avoid duplicates
+    const clientNames = clientBatch.map(client => client.clientName.toLowerCase());
+    const existingClientNames = await prisma.rates.findMany({
+      where: {
+        clientName: {
+          in: clientBatch.map(client => client.clientName),
+          mode: 'insensitive', // Case insensitive search
+        }
+      },
+      select: {
+        clientName: true
+      }
+    });
+    
+    // Filter out clients that already exist
+    const existingLowerNames = new Set(existingClientNames.map(c => c.clientName.toLowerCase()));
+    const newClientsToAdd = clientBatch.filter(
+      client => !existingLowerNames.has(client.clientName.toLowerCase())
+    );
+    
+    if (newClientsToAdd.length > 0) {
+      const clientData = newClientsToAdd.map((client) => ({
+        clientName: client.clientName,
+        rate: 1, // Default rate
+        noOfStaff: 1, // Default staff count
+      }));
+      
+      await prisma.rates.createMany({
+        data: clientData,
+      });
+    }
+  });
 
         addedClientCount = newClients.length
 
