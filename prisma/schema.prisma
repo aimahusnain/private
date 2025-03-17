@@ -13,10 +13,14 @@ model Rates {
   clientName String // Stores the client's name
   rate       Float // Stores the rate as a number
   noOfStaff  Int
+  sales      Sales[]  // Relation to Sales model
 }
 
-model Staff {
-  id   String @id @default(auto()) @map("_id") @db.ObjectId
-  name String
-  rate Float
+model Sales {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  date       DateTime @default(now())
+  client     Rates    @relation(fields: [clientId], references: [id])
+  clientId   String   @db.ObjectId
+  amount     Float    // Stores the sales amount
+  method     String   // Stores the payment method
 }
