@@ -233,6 +233,7 @@ export async function POST(request: Request) {
 
             if (isNaN(parsedDate.getTime())) continue
           } catch (error) {
+              console.log(error)
             continue
           }
 
