@@ -33,18 +33,29 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Moon, Sun, Plus, MoreHorizontal, Pencil, Trash2, RefreshCw, Upload, Download, FileUp } from "lucide-react"
+import {
+  Moon,
+  Sun,
+  Plus,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  RefreshCw,
+  Upload,
+  Download,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Toaster } from "sonner"
 import { toast } from "sonner"
-// Remove this line: import { toast } from "@/components/ui/use-toast"
+import { Progress } from "@/components/ui/progress"
 
-// Define the Sale type based on your Prisma schema
+// Add note to the Sale type
 type Sale = {
   id: string
   date: string
@@ -52,6 +63,7 @@ type Sale = {
   clientName: string
   amount: number
   method: string
+  note?: string
 }
 
 // Define the Client type for dropdown
@@ -59,6 +71,9 @@ type Client = {
   id: string
   clientName: string
 }
+
+// Define upload status type
+type UploadStatus = "idle" | "selecting" | "uploading" | "processing" | "success" | "error"
 
 export default function SalesPage() {
   const { theme, setTheme } = useTheme()
@@ -71,13 +86,22 @@ export default function SalesPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle")
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadMessage, setUploadMessage] = useState("")
 
-  const [formData, setFormData] = useState({
+  // Initialize formData with default values
+  const initialFormData = {
     date: format(new Date(), "yyyy-MM-dd"),
     clientId: "",
     amount: "",
     method: "Cash",
-  })
+    note: "",
+  }
+
+  // Use useState with the initialFormData
+  const [formData, setFormData] = useState(initialFormData)
 
   // Fetch sales and clients
   const fetchData = async () => {
@@ -89,7 +113,7 @@ export default function SalesPage() {
       setSales(salesData)
 
       // Fetch clients
-      const clientsResponse = await fetch("/api/get-clients")
+      const clientsResponse = await fetch("/api/clients")
       const clientsData = await clientsResponse.json()
       setClients(clientsData)
     } catch (error) {
@@ -103,6 +127,19 @@ export default function SalesPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Reset upload state when dialog closes
+  useEffect(() => {
+    if (!isUploadDialogOpen) {
+      setSelectedFile(null)
+      setUploadStatus("idle")
+      setUploadProgress(0)
+      setUploadMessage("")
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }, [isUploadDialogOpen])
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +158,161 @@ export default function SalesPage() {
     })
   }
 
-  // Add a new sale
+  // Add a new API route for adding clients
+  const addNewClient = async (clientName: string) => {
+    try {
+      const response = await fetch("/api/clients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientName,
+          rate: 1, // Default rate
+          noOfStaff: 1, // Default staff count
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to add client")
+      }
+
+      const newClient = await response.json()
+      return newClient
+    } catch (error) {
+      console.error("Failed to add client:", error)
+      throw error
+    }
+  }
+
+  // Handle file selection
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      setUploadStatus("selecting")
+      setUploadMessage(`Selected file: ${file.name}`)
+    } else {
+      setSelectedFile(null)
+      setUploadStatus("idle")
+      setUploadMessage("")
+    }
+  }
+
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      toast.error("Please select a file first")
+      return
+    }
+
+    const formData = new FormData()
+    formData.append("file", selectedFile)
+
+    try {
+      // Update status to uploading
+      setUploadStatus("uploading")
+      setUploadProgress(10)
+      setUploadMessage("Uploading file...")
+
+      const response = await fetch("/api/sales/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      // Update status to processing
+      setUploadProgress(50)
+      setUploadStatus("processing")
+      setUploadMessage("Processing data...")
+
+      const result = await response.json()
+
+      if (response.ok) {
+        setUploadProgress(80)
+        setUploadMessage("Finalizing import...")
+
+        // Check if there are new clients that need to be added
+        if (result.newClients && result.newClients.length > 0) {
+          // Ask user if they want to add the new clients
+          const confirmAdd = window.confirm(
+            `Found ${result.newClients.length} new clients in the CSV that don't exist in the database. Would you like to add them?`,
+          )
+
+          if (confirmAdd) {
+            setUploadMessage(`Adding ${result.newClients.length} new clients...`)
+            // Add each new client
+            for (const client of result.newClients) {
+              try {
+                await addNewClient(client.clientName)
+              } catch (error) {
+                console.error(`Failed to add client ${client.clientName}:`, error)
+                toast.error(`Failed to add client ${client.clientName}`)
+              }
+            }
+            toast.success(`Added ${result.newClients.length} new clients`)
+          } else {
+            toast.info(`Skipped ${result.newClients.length} rows with unknown clients`)
+          }
+        }
+
+        if (result.skippedRows && result.skippedRows.length > 0) {
+          toast.info(`Skipped rows: ${result.skippedRows.join(", ")}`)
+        }
+
+        // Update status to success
+        setUploadProgress(100)
+        setUploadStatus("success")
+        setUploadMessage(`Successfully imported ${result.count} sales records`)
+
+        // Refresh data and close dialog after a short delay
+        setTimeout(() => {
+          fetchData()
+          setIsUploadDialogOpen(false)
+        }, 1500)
+
+        toast.success(`Successfully imported ${result.count} sales records`)
+      } else {
+        throw new Error(result.error || "Failed to upload CSV")
+      }
+    } catch (error) {
+      console.error("CSV upload error:", error)
+      setUploadStatus("error")
+      setUploadProgress(100)
+      setUploadMessage(error instanceof Error ? error.message : "Failed to import CSV data")
+      toast.error(error instanceof Error ? error.message : "Failed to import CSV data")
+    }
+  }
+
+  // Handle CSV export
+  const handleExportCSV = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/sales/export")
+
+      if (!response.ok) {
+        throw new Error("Failed to export data")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `sales-export-${format(new Date(), "yyyy-MM-dd")}.csv`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success("Sales data exported successfully")
+    } catch (error) {
+      console.error("Export error:", error)
+      toast.error("Failed to export sales data")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Update the handleAddSale function to include note
   const handleAddSale = async () => {
     try {
       const response = await fetch("/api/sales", {
@@ -134,17 +325,13 @@ export default function SalesPage() {
           clientId: formData.clientId,
           amount: Number.parseFloat(formData.amount),
           method: formData.method,
+          note: formData.note,
         }),
       })
 
       if (response.ok) {
         setIsAddDialogOpen(false)
-        setFormData({
-          date: format(new Date(), "yyyy-MM-dd"),
-          clientId: "",
-          amount: "",
-          method: "Cash",
-        })
+        setFormData(initialFormData)
         fetchData()
         toast.success("Sale added successfully")
       } else {
@@ -156,7 +343,7 @@ export default function SalesPage() {
     }
   }
 
-  // Update a sale
+  // Update the handleUpdateSale function to include note
   const handleUpdateSale = async () => {
     if (!selectedSale) return
 
@@ -171,6 +358,7 @@ export default function SalesPage() {
           clientId: formData.clientId,
           amount: Number.parseFloat(formData.amount),
           method: formData.method,
+          note: formData.note,
         }),
       })
 
@@ -211,7 +399,7 @@ export default function SalesPage() {
     }
   }
 
-  // Open edit dialog and set form data
+  // Update the openEditDialog function to include note
   const openEditDialog = (sale: Sale) => {
     setSelectedSale(sale)
     setFormData({
@@ -219,6 +407,7 @@ export default function SalesPage() {
       clientId: sale.clientId,
       amount: sale.amount.toString(),
       method: sale.method,
+      note: sale.note || "",
     })
     setIsEditDialogOpen(true)
   }
@@ -229,67 +418,58 @@ export default function SalesPage() {
     setIsDeleteDialogOpen(true)
   }
 
-  // Handle CSV upload
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const formData = new FormData()
-    formData.append("file", file)
-
+  // Handle template download
+  const handleDownloadTemplate = async () => {
     try {
-      setLoading(true)
-      const response = await fetch("/api/sales/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (response.ok) {
-        fetchData()
-        setIsUploadDialogOpen(false)
-        toast.success("Sales data imported successfully")
-      } else {
-        const error = await response.json()
-        throw new Error(error.message || "Failed to upload CSV")
-      }
-    } catch (error) {
-      console.error("CSV upload error:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to import CSV data")
-    } finally {
-      setLoading(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-    }
-  }
-
-  // Handle CSV export
-  const handleExportCSV = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch("/api/sales/export")
+      const response = await fetch("/api/sales/template")
 
       if (!response.ok) {
-        throw new Error("Failed to export data")
+        throw new Error("Failed to download template")
       }
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `sales-export-${format(new Date(), "yyyy-MM-dd")}.csv`
+      a.download = "sales-import-template.csv"
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      toast.success("Sales data exported successfully")
+      toast.success("Template downloaded successfully")
     } catch (error) {
-      console.error("Export error:", error)
-      toast.error("Failed to export sales data")
-    } finally {
-      setLoading(false)
+      console.error("Template download error:", error)
+      toast.error("Failed to download template")
     }
+  }
+
+  // Render upload status UI
+  const renderUploadStatus = () => {
+    if (uploadStatus === "idle") {
+      return null
+    }
+
+    let statusColor = "bg-blue-500"
+    let statusIcon = <RefreshCw className="h-4 w-4 animate-spin" />
+
+    if (uploadStatus === "success") {
+      statusColor = "bg-green-500"
+      statusIcon = <CheckCircle2 className="h-4 w-4 text-green-500" />
+    } else if (uploadStatus === "error") {
+      statusColor = "bg-red-500"
+      statusIcon = <AlertCircle className="h-4 w-4 text-red-500" />
+    }
+
+    return (
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          <span className={uploadStatus === "error" ? "text-red-500" : ""}>{uploadMessage}</span>
+        </div>
+        <Progress value={uploadProgress} className={statusColor} />
+      </div>
+    )
   }
 
   return (
@@ -348,17 +528,63 @@ export default function SalesPage() {
                     <DialogHeader>
                       <DialogTitle>Import Sales Data</DialogTitle>
                       <DialogDescription>
-                        Upload a CSV file with your sales data. The file should have headers: date, clientId, amount,
-                        method.
+                        Upload a CSV file with your sales data. The file should have headers: date, client, amount,
+                        method, and note.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <Label htmlFor="csv-file">CSV File</Label>
-                      <Input id="csv-file" type="file" accept=".csv" ref={fileInputRef} onChange={handleFileChange} />
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="csv-file">CSV File</Label>
+                        <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="text-xs">
+                          <Download className="h-3 w-3 mr-1" />
+                          Download Template
+                        </Button>
+                      </div>
+                      <Input
+                        id="csv-file"
+                        type="file"
+                        accept=".csv"
+                        ref={fileInputRef}
+                        onChange={handleFileSelection}
+                        disabled={uploadStatus === "uploading" || uploadStatus === "processing"}
+                      />
+
+                      {renderUploadStatus()}
                     </div>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsUploadDialogOpen(false)}
+                        disabled={uploadStatus === "uploading" || uploadStatus === "processing"}
+                      >
                         Cancel
+                      </Button>
+                      <Button
+                        onClick={handleFileUpload}
+                        disabled={
+                          !selectedFile ||
+                          uploadStatus === "uploading" ||
+                          uploadStatus === "processing" ||
+                          uploadStatus === "success"
+                        }
+                        className={uploadStatus === "selecting" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                      >
+                        {uploadStatus === "uploading" || uploadStatus === "processing" ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : uploadStatus === "success" ? (
+                          <>
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Completed
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload
+                          </>
+                        )}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -425,24 +651,101 @@ export default function SalesPage() {
                             <SelectItem value="Cash">Cash</SelectItem>
                             <SelectItem value="Credit Card">Credit Card</SelectItem>
                             <SelectItem value="Debit Card">Debit Card</SelectItem>
-                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="Check">Check</SelectItem>
-                            <SelectItem value="Mobile Payment">Mobile Payment</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="note">Note</Label>
+                        <Input id="note" name="note" value={formData.note} onChange={handleInputChange} />
                       </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button
-                        className="bg-blue-600 hover:bg-blue-700"
-                        onClick={handleAddSale}
-                        disabled={!formData.clientId || !formData.amount}
-                      >
+                      <Button type="submit" onClick={handleAddSale}>
                         Add Sale
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Edit Sale Dialog */}
+                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Edit Sale</DialogTitle>
+                      <DialogDescription>Edit the details for the selected sale.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="date">Date</Label>
+                        <Input id="date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="clientId">Client</Label>
+                        <Select
+                          value={formData.clientId}
+                          onValueChange={(value) => handleSelectChange("clientId", value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a client" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.clientName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="amount">Amount ($)</Label>
+                        <Input id="amount" name="amount" value={formData.amount} onChange={handleInputChange} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="method">Payment Method</Label>
+                        <Select value={formData.method} onValueChange={(value) => handleSelectChange("method", value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Cash">Cash</SelectItem>
+                            <SelectItem value="Credit Card">Credit Card</SelectItem>
+                            <SelectItem value="Debit Card">Debit Card</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="note">Note</Label>
+                        <Input id="note" name="note" value={formData.note} onChange={handleInputChange} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" onClick={handleUpdateSale}>
+                        Update Sale
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Delete Sale Dialog */}
+                <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Sale</DialogTitle>
+                      <DialogDescription>Are you sure you want to delete this sale?</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button variant="destructive" onClick={handleDeleteSale}>
+                        Delete
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -451,165 +754,67 @@ export default function SalesPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex h-40 items-center justify-center">
-                  <div className="animate-spin text-blue-500">
-                    <RefreshCw className="h-8 w-8" />
-                  </div>
-                </div>
-              ) : sales.length === 0 ? (
-                <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
-                  <p className="text-muted-foreground">No sales found</p>
-                  <div className="flex gap-2 mt-2">
-                    <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
-                      <FileUp className="mr-2 h-4 w-4" />
-                      Import CSV
-                    </Button>
-                    <Button
-                      onClick={() => setIsAddDialogOpen(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add your first sale
-                    </Button>
-                  </div>
+                <div className="flex items-center justify-center">
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Loading sales data...
                 </div>
               ) : (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Client Name</TableHead>
-                        <TableHead>Amount ($)</TableHead>
-                        <TableHead>Payment Method</TableHead>
-                        <TableHead className="w-[100px]">Actions</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead>Note</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sales.map((sale) => (
+                      <TableRow key={sale.id}>
+                        <TableCell>{format(new Date(sale.date), "yyyy-MM-dd")}</TableCell>
+                        <TableCell>{sale.clientName}</TableCell>
+                        <TableCell>${sale.amount.toFixed(2)}</TableCell>
+                        <TableCell>{sale.method}</TableCell>
+                        <TableCell>{sale.note}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => openEditDialog(sale)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openDeleteDialog(sale)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sales.map((sale) => (
-                        <TableRow key={sale.id}>
-                          <TableCell>{format(new Date(sale.date), "MMM d, yyyy")}</TableCell>
-                          <TableCell>{sale.clientName}</TableCell>
-                          <TableCell>${sale.amount.toFixed(2)}</TableCell>
-                          <TableCell>{sale.method}</TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => openEditDialog(sale)}>
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => openDeleteDialog(sale)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                    {sales.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center">
+                          No sales records found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
         </div>
       </SidebarInset>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Sale</DialogTitle>
-            <DialogDescription>Update the sale details.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-date">Date</Label>
-              <Input id="edit-date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-clientId">Client</Label>
-              <Select value={formData.clientId} onValueChange={(value) => handleSelectChange("clientId", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.clientName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-amount">Amount ($)</Label>
-              <Input id="edit-amount" name="amount" value={formData.amount} onChange={handleInputChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-method">Payment Method</Label>
-              <Select value={formData.method} onValueChange={(value) => handleSelectChange("method", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Credit Card">Credit Card</SelectItem>
-                  <SelectItem value="Debit Card">Debit Card</SelectItem>
-                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="Check">Check</SelectItem>
-                  <SelectItem value="Mobile Payment">Mobile Payment</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={handleUpdateSale}
-              disabled={!formData.clientId || !formData.amount}
-            >
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Sale</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this sale? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteSale}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </SidebarProvider>
   )
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
 import { stringify } from "csv-stringify/sync"
+import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
@@ -28,23 +28,25 @@ export async function GET() {
       clientName: sale.client.clientName,
       amount: sale.amount,
       method: sale.method,
+      note: sale.note || "",
     }))
 
-    // Convert to CSV
-    const csv = stringify(csvData, {
+    // Convert to CSV - fix the type issue by converting to string
+    const csvString = stringify(csvData, {
       header: true,
       columns: {
         date: "Date",
         clientName: "Client Name",
         amount: "Amount",
         method: "Payment Method",
+        note: "Note",
         clientId: "Client ID",
         id: "Sale ID",
       },
     })
 
     // Return as downloadable file
-    return new NextResponse(csv, {
+    return new NextResponse(csvString, {
       headers: {
         "Content-Type": "text/csv",
         "Content-Disposition": `attachment; filename="sales-export-${new Date().toISOString().split("T")[0]}.csv"`,

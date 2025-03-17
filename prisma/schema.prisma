@@ -23,4 +23,5 @@ model Sales {
   clientId   String   @db.ObjectId
   amount     Float    // Stores the sales amount
   method     String   // Stores the payment method
+  note       String?
 }
