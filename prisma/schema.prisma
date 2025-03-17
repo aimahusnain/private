@@ -12,4 +12,5 @@ model Rates {
   date      DateTime @default(now()) // Stores the date
   clientName String  // Stores the client's name
   rate      Float    // Stores the rate as a number
+  noOfStaff Int
 }

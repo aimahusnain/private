@@ -46,6 +46,7 @@ type Rate = {
   date: string
   clientName: string
   rate: number
+  noOfStaff: number
 }
 
 export default function Page() {
@@ -60,6 +61,7 @@ export default function Page() {
     date: "",
     clientName: "",
     rate: "",
+    noOfStaff: "",
   })
 
   // Stats
@@ -119,12 +121,13 @@ export default function Page() {
           date: formData.date || new Date().toISOString(),
           clientName: formData.clientName,
           rate: Number.parseFloat(formData.rate),
+          noOfStaff: Number.parseInt(formData.noOfStaff) || 0,
         }),
       })
 
       if (response.ok) {
         setIsAddDialogOpen(false)
-        setFormData({ date: "", clientName: "", rate: "" })
+        setFormData({ date: "", clientName: "", rate: "", noOfStaff: "" })
         fetchRates()
       }
     } catch (error) {
@@ -146,6 +149,7 @@ export default function Page() {
           date: formData.date,
           clientName: formData.clientName,
           rate: Number.parseFloat(formData.rate),
+          noOfStaff: Number.parseInt(formData.noOfStaff) || 0,
         }),
       })
 
@@ -185,6 +189,7 @@ export default function Page() {
       date: new Date(rate.date).toISOString().split("T")[0],
       clientName: rate.clientName,
       rate: rate.rate.toString(),
+      noOfStaff: rate.noOfStaff?.toString() || "0",
     })
     setIsEditDialogOpen(true)
   }
@@ -227,7 +232,7 @@ export default function Page() {
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-6">
           {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <Card className="border-lime-500/20">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
@@ -267,6 +272,21 @@ export default function Page() {
                 </div>
               </CardContent>
             </Card>
+            <Card className="border-lime-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold">
+                    {rates.reduce((sum, rate) => sum + (rate.noOfStaff || 0), 0)}
+                  </div>
+                  <div className="rounded-full bg-lime-500/10 p-2 text-lime-500">
+                    <Users className="h-4 w-4" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Rates Table */}
@@ -282,7 +302,7 @@ export default function Page() {
                 </Button>
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-lime-600 hover:bg-lime-700">
+                    <Button className="bg-lime-600 cursor-pointer text-white hover:bg-lime-500">
                       <Plus className="mr-2 h-4 w-4" />
                       Add Rate
                     </Button>
@@ -309,6 +329,17 @@ export default function Page() {
                       <div className="grid gap-2">
                         <Label htmlFor="rate">Rate ($)</Label>
                         <Input id="rate" name="rate" value={formData.rate} onChange={handleInputChange} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="noOfStaff">No. of Staff</Label>
+                        <Input
+                          id="noOfStaff"
+                          name="noOfStaff"
+                          type="number"
+                          min="0"
+                          value={formData.noOfStaff}
+                          onChange={handleInputChange}
+                        />
                       </div>
                     </div>
                     <DialogFooter>
@@ -350,6 +381,7 @@ export default function Page() {
                         <TableHead>Date</TableHead>
                         <TableHead>Client Name</TableHead>
                         <TableHead>Rate ($)</TableHead>
+                        <TableHead>No. of Staff</TableHead>
                         <TableHead className="w-[100px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -359,6 +391,7 @@ export default function Page() {
                           <TableCell>{format(new Date(rate.date), "MMM d, yyyy")}</TableCell>
                           <TableCell>{rate.clientName}</TableCell>
                           <TableCell>${rate.rate.toFixed(2)}</TableCell>
+                          <TableCell>{rate.noOfStaff || 0}</TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -413,6 +446,17 @@ export default function Page() {
             <div className="grid gap-2">
               <Label htmlFor="edit-rate">Rate ($)</Label>
               <Input id="edit-rate" name="rate" value={formData.rate} onChange={handleInputChange} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-noOfStaff">No. of Staff</Label>
+              <Input
+                id="edit-noOfStaff"
+                name="noOfStaff"
+                type="number"
+                min="0"
+                value={formData.noOfStaff}
+                onChange={handleInputChange}
+              />
             </div>
           </div>
           <DialogFooter>

@@ -1,36 +1,9 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 
-const prisma = new PrismaClient()
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Get the URL to extract query parameters
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
-
-    // If ID is provided, return a single rate
-    if (id) {
-      const rate = await prisma.rates.findUnique({
-        where: {
-          id: id,
-        },
-      })
-
-      if (!rate) {
-        return NextResponse.json({ error: "Rate not found" }, { status: 404 })
-      }
-
-      return NextResponse.json(rate)
-    }
-
-    // Otherwise, return all rates
-    const rates = await prisma.rates.findMany({
-      orderBy: {
-        date: "desc",
-      },
-    })
-
+    const rates = await prisma.rates.findMany()
     return NextResponse.json(rates)
   } catch (error) {
     console.error("Failed to fetch rates:", error)
@@ -42,13 +15,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    const { date, clientName, rate } = body
+    const { date, clientName, rate, noOfStaff } = body
 
     const newRate = await prisma.rates.create({
       data: {
         date: new Date(date),
         clientName,
         rate,
+        noOfStaff: noOfStaff || 0,
       },
     })
 
@@ -69,7 +43,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { date, clientName, rate } = body
+    const { date, clientName, rate, noOfStaff } = body
 
     const updatedRate = await prisma.rates.update({
       where: {
@@ -79,6 +53,7 @@ export async function PUT(request: Request) {
         date: new Date(date),
         clientName,
         rate,
+        noOfStaff: noOfStaff || 0,
       },
     })
 
@@ -104,10 +79,9 @@ export async function DELETE(request: Request) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return new NextResponse(null, { status: 204 })
   } catch (error) {
     console.error("Failed to delete rate:", error)
     return NextResponse.json({ error: "Failed to delete rate" }, { status: 500 })
   }
 }
-
