@@ -78,6 +78,18 @@ export async function POST(request: Request) {
     const clientNameMap = new Map(existingClients.map((client) => [client.clientName.toLowerCase(), client.id]))
     const clientIdMap = new Map(existingClients.map((client) => [client.id, client.clientName]))
 
+// Fetch all client rates once at the beginning, before processing any records
+const clientRates = await prisma.rates.findMany({
+    select: {
+      id: true,
+      rate: true,
+    },
+  });
+  
+  // Create a map of client IDs to rates - do this once
+  const clientRateMap = new Map(clientRates.map((client) => [client.id, client.rate]));
+  
+
     // Process each record
     for (let i = 0; i < records.length; i++) {
       const record = records[i]
@@ -133,18 +145,22 @@ export async function POST(request: Request) {
         continue
       }
 
-      // Process valid record - only add if clientId is defined
-      if (clientId) {
-        processedRecords.push({
-          date: parsedDate,
-          clientId: clientId,
-          amount: Number.parseFloat(record.amount || "0"),
-          method: record.method || "",
-          note: record.note || null,
-        })
-      } else {
-        skippedRecords.push(i + 1)
-      }
+      
+  // Process valid record - only add if clientId is defined
+  if (clientId) {
+    const clientRate = clientRateMap.get(clientId) || 1; // Use default rate of 1 if not found
+    
+    processedRecords.push({
+      date: parsedDate,
+      clientId: clientId,
+      amount: Number.parseFloat(record.amount || "0"),
+      method: record.method || "",
+      note: record.note || null,
+      clientRate: clientRate, // Add client rate from the Rates model
+    });
+  } else {
+    skippedRecords.push(i + 1);
+  }
     }
 
     // Function to process records in batches
@@ -177,7 +193,6 @@ export async function POST(request: Request) {
 // Replace the client creation section with this code
 await processBatches(newClients, BATCH_SIZE, async (clientBatch) => {
     // First check which client names already exist to avoid duplicates
-    // const clientNames = clientBatch.map(client => client.clientName.toLowerCase());
     const existingClientNames = await prisma.rates.findMany({
       where: {
         clientName: {
@@ -258,14 +273,17 @@ await processBatches(newClients, BATCH_SIZE, async (clientBatch) => {
             continue
           }
 
-          // Add to reprocessed records
-          reprocessedRecords.push({
-            date: parsedDate,
-            clientId: clientId,
-            amount: Number.parseFloat(record.amount || "0"),
-            method: record.method || "",
-            note: record.note || null,
-          })
+// Add to reprocessed records
+const clientRate = clientRateMap.get(clientId) || 1; // Use default rate of 1 if not found
+
+reprocessedRecords.push({
+  date: parsedDate,
+  clientId: clientId,
+  amount: Number.parseFloat(record.amount || "0"),
+  method: record.method || "",
+  note: record.note || null,
+  clientRate: clientRate, // Add client rate here as well
+});
 
           // Remove from skipped records
           skippedRecords.splice(skippedRecords.indexOf(i + 1), 1)

@@ -61,20 +61,23 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 // Add note to the Sale type
 type Sale = {
-  id: string
-  date: string
-  clientId: string
-  clientName: string
-  amount: number
-  method: string
-  note?: string
-}
+    id: string
+    date: string
+    clientId: string
+    clientName: string
+    amount: number
+    method: string
+    note?: string
+    clientRate: number // Add this field
+  }
 
 // Define the Client type for dropdown
+// Define the Client type for dropdown
 type Client = {
-  id: string
-  clientName: string
-}
+    id: string
+    clientName: string
+    rate?: number
+  }
 
 // Define upload status type
 type UploadStatus = "idle" | "selecting" | "uploading" | "processing" | "success" | "error"
@@ -96,13 +99,14 @@ export default function SalesPage() {
   const [uploadMessage, setUploadMessage] = useState("")
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
 
-  // Initialize formData with default values
-  const initialFormData = {
+// Initialize formData with default values
+const initialFormData = {
     date: format(new Date(), "yyyy-MM-dd"),
     clientId: "",
     amount: "",
     method: "Cash",
     note: "",
+    clientRate: "", // Add clientRate field
   }
 
   // Use useState with the initialFormData
@@ -116,8 +120,8 @@ export default function SalesPage() {
       const salesResponse = await fetch("/api/sales")
       const salesData = await salesResponse.json()
       setSales(salesData)
-
-      // Fetch clients
+  
+      // Fetch clients with rates
       const clientsResponse = await fetch("/api/clients")
       const clientsData = await clientsResponse.json()
       setClients(clientsData)
@@ -156,13 +160,37 @@ export default function SalesPage() {
   }
 
   // Handle select changes
-  const handleSelectChange = (name: string, value: string) => {
+const handleSelectChange = async (name: string, value: string) => {
     setFormData({
       ...formData,
       [name]: value,
     })
+    
+    // If client changed, fetch the default rate
+    if (name === "clientId" && value) {
+      try {
+        const client = clients.find(c => c.id === value)
+        if (client?.rate) {
+          setFormData(prev => ({
+            ...prev,
+            clientRate: client.rate.toString(),
+          }))
+        } else {
+          // If we need to fetch the rate separately
+          const response = await fetch(`/api/clients/${value}`)
+          if (response.ok) {
+            const clientData = await response.json()
+            setFormData(prev => ({
+              ...prev,
+              clientRate: clientData.rate.toString(),
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching client rate:", error)
+      }
+    }
   }
-
   // Add a new API route for adding clients
   const addNewClient = async (clientName: string) => {
     try {
@@ -331,6 +359,7 @@ export default function SalesPage() {
           amount: Number.parseFloat(formData.amount),
           method: formData.method,
           note: formData.note,
+          clientRate: formData.clientRate ? Number.parseFloat(formData.clientRate) : undefined,
         }),
       })
 
@@ -364,6 +393,7 @@ export default function SalesPage() {
           amount: Number.parseFloat(formData.amount),
           method: formData.method,
           note: formData.note,
+          clientRate: formData.clientRate ? Number.parseFloat(formData.clientRate) : undefined,
         }),
       })
 
@@ -404,7 +434,6 @@ export default function SalesPage() {
     }
   }
 
-  // Update the openEditDialog function to include note
   const openEditDialog = (sale: Sale) => {
     setSelectedSale(sale)
     setFormData({
@@ -413,6 +442,7 @@ export default function SalesPage() {
       amount: sale.amount.toString(),
       method: sale.method,
       note: sale.note || "",
+      clientRate: sale.clientRate?.toString() || "",
     })
     setIsEditDialogOpen(true)
   }
@@ -754,6 +784,16 @@ export default function SalesPage() {
                         <Label htmlFor="amount">Amount ($)</Label>
                         <Input id="amount" name="amount" value={formData.amount} onChange={handleInputChange} />
                       </div>
+<div className="grid gap-2">
+  <Label htmlFor="clientRate">Client Rate ($)</Label>
+  <Input 
+    id="clientRate" 
+    name="clientRate" 
+    value={formData.clientRate} 
+    onChange={handleInputChange} 
+    placeholder="Default from client settings" 
+  />
+</div>
                       <div className="grid gap-2">
                         <Label htmlFor="method">Payment Method</Label>
                         <Select value={formData.method} onValueChange={(value) => handleSelectChange("method", value)}>
@@ -783,68 +823,78 @@ export default function SalesPage() {
                   </DialogContent>
                 </Dialog>
 
-                {/* Edit Sale Dialog */}
-                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Edit Sale</DialogTitle>
-                      <DialogDescription>Edit the details for the selected sale.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="date">Date</Label>
-                        <Input id="date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="clientId">Client</Label>
-                        <Select
-                          value={formData.clientId}
-                          onValueChange={(value) => handleSelectChange("clientId", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a client" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {clients.map((client) => (
-                              <SelectItem key={client.id} value={client.id}>
-                                {client.clientName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="amount">Amount ($)</Label>
-                        <Input id="amount" name="amount" value={formData.amount} onChange={handleInputChange} />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="method">Payment Method</Label>
-                        <Select value={formData.method} onValueChange={(value) => handleSelectChange("method", value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select payment method" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Cash">Cash</SelectItem>
-                            <SelectItem value="Credit Card">Credit Card</SelectItem>
-                            <SelectItem value="Debit Card">Debit Card</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="note">Note</Label>
-                        <Input id="note" name="note" value={formData.note} onChange={handleInputChange} />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" onClick={handleUpdateSale}>
-                        Update Sale
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+{/* Edit Sale Dialog */}
+<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Edit Sale</DialogTitle>
+      <DialogDescription>Edit the details for the selected sale.</DialogDescription>
+    </DialogHeader>
+    <div className="grid gap-4 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="date">Date</Label>
+        <Input id="date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="clientId">Client</Label>
+        <Select
+          value={formData.clientId}
+          onValueChange={(value) => handleSelectChange("clientId", value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select a client" />
+          </SelectTrigger>
+          <SelectContent>
+            {clients.map((client) => (
+              <SelectItem key={client.id} value={client.id}>
+                {client.clientName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="amount">Amount ($)</Label>
+        <Input id="amount" name="amount" value={formData.amount} onChange={handleInputChange} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="clientRate">Client Rate ($)</Label>
+        <Input 
+          id="clientRate" 
+          name="clientRate" 
+          value={formData.clientRate} 
+          onChange={handleInputChange} 
+          placeholder="Default from client settings" 
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="method">Payment Method</Label>
+        <Select value={formData.method} onValueChange={(value) => handleSelectChange("method", value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select payment method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Cash">Cash</SelectItem>
+            <SelectItem value="Credit Card">Credit Card</SelectItem>
+            <SelectItem value="Debit Card">Debit Card</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="note">Note</Label>
+        <Input id="note" name="note" value={formData.note} onChange={handleInputChange} />
+      </div>
+    </div>
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+        Cancel
+      </Button>
+      <Button type="submit" onClick={handleUpdateSale}>
+        Update Sale
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
                 {/* Delete Sale Dialog */}
                 <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -882,6 +932,7 @@ export default function SalesPage() {
                         <TableHead>Date</TableHead>
                         <TableHead>Client</TableHead>
                         <TableHead>Amount</TableHead>
+                        <TableHead>Rate</TableHead> {/* New column */}
                         <TableHead>Method</TableHead>
                         <TableHead>Note</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -900,6 +951,7 @@ export default function SalesPage() {
                           <TableCell>{format(new Date(sale.date), "yyyy-MM-dd")}</TableCell>
                           <TableCell>{sale.clientName}</TableCell>
                           <TableCell>${sale.amount.toFixed(2)}</TableCell>
+                          <TableCell>${sale.clientRate?.toFixed(2) || 'Default'}</TableCell>
                           <TableCell>{sale.method}</TableCell>
                           <TableCell>{sale.note}</TableCell>
                           <TableCell className="text-right">

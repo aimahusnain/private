@@ -24,4 +24,5 @@ model Sales {
   amount     Float    // Stores the sales amount
   method     String   // Stores the payment method
   note       String?
+  clientRate Float?   // New field for client rate, optional to allow fetching from Rates
 }
