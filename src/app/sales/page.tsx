@@ -49,11 +49,15 @@ import {
   Download,
   CheckCircle2,
   AlertCircle,
+  MinusSquare,
+  CheckSquare,
+  Square,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Toaster } from "sonner"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Add note to the Sale type
 type Sale = {
@@ -90,6 +94,7 @@ export default function SalesPage() {
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle")
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadMessage, setUploadMessage] = useState("")
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
 
   // Initialize formData with default values
   const initialFormData = {
@@ -472,6 +477,104 @@ export default function SalesPage() {
     )
   }
 
+  // Handle row selection
+  const handleRowSelect = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedRows)
+    if (checked) {
+      newSelected.add(id)
+    } else {
+      newSelected.delete(id)
+    }
+    setSelectedRows(newSelected)
+  }
+
+  // Handle select all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = sales.map((sale) => sale.id)
+      setSelectedRows(new Set(allIds))
+    } else {
+      setSelectedRows(new Set())
+    }
+  }
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedRows.size === 0) return
+
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedRows.size} selected sales?`)
+    if (!confirmDelete) return
+
+    setLoading(true)
+    let successCount = 0
+    let errorCount = 0
+
+    try {
+      // Delete each selected row
+      for (const id of selectedRows) {
+        try {
+          const response = await fetch(`/api/sales?id=${id}`, {
+            method: "DELETE",
+          })
+
+          if (response.ok) {
+            successCount++
+          } else {
+            errorCount++
+          }
+        } catch (error) {
+          console.error(`Error deleting sale ${id}:`, error)
+          errorCount++
+        }
+      }
+    } catch (error) {
+      console.error("Bulk delete error:", error)
+      toast.error("An error occurred during bulk delete")
+    }
+
+    // Show results
+    if (successCount > 0) {
+      toast.success(`Successfully deleted ${successCount} sales`)
+    }
+    if (errorCount > 0) {
+      toast.error(`Failed to delete ${errorCount} sales`)
+    }
+
+    // Clear selection and refresh data
+    setSelectedRows(new Set())
+    fetchData()
+  }
+
+  // Add this effect to clear selections when data changes
+  useEffect(() => {
+    setSelectedRows(new Set())
+  }, [sales])
+
+  // Get selection state for header checkbox
+  const getSelectionState = () => {
+    if (selectedRows.size === 0) return "none"
+    if (selectedRows.size === sales.length) return "all"
+    return "partial"
+  }
+
+  // Render the appropriate checkbox icon based on selection state
+  const renderHeaderCheckbox = () => {
+    const selectionState = getSelectionState()
+
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 p-0"
+        onClick={() => handleSelectAll(selectionState !== "all")}
+      >
+        {selectionState === "none" && <Square className="h-4 w-4" />}
+        {selectionState === "partial" && <MinusSquare className="h-4 w-4" />}
+        {selectionState === "all" && <CheckSquare className="h-4 w-4" />}
+      </Button>
+    )
+  }
+
   return (
     <SidebarProvider>
       <Toaster position="top-right" />
@@ -512,6 +615,16 @@ export default function SalesPage() {
                 <CardDescription>Manage your sales records</CardDescription>
               </div>
               <div className="flex gap-2">
+                {selectedRows.size > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={handleBulkDelete}
+                    title={`Delete ${selectedRows.size} selected items`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" onClick={fetchData}>
                   <RefreshCw className="h-4 w-4" />
                 </Button>
@@ -752,64 +865,76 @@ export default function SalesPage() {
                 </Dialog>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center p-8">
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   Loading sales data...
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sales.map((sale) => (
-                      <TableRow key={sale.id}>
-                        <TableCell>{format(new Date(sale.date), "yyyy-MM-dd")}</TableCell>
-                        <TableCell>{sale.clientName}</TableCell>
-                        <TableCell>${sale.amount.toFixed(2)}</TableCell>
-                        <TableCell>{sale.method}</TableCell>
-                        <TableCell>{sale.note}</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => openEditDialog(sale)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openDeleteDialog(sale)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {sales.length === 0 && (
+                <div className="relative max-h-[calc(100vh-220px)] overflow-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center">
-                          No sales records found.
-                        </TableCell>
+                        <TableHead className="w-[50px] text-center">
+                          <div className="flex justify-center">{renderHeaderCheckbox()}</div>
+                        </TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Note</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {sales.map((sale) => (
+                        <TableRow key={sale.id} className={selectedRows.has(sale.id) ? "bg-muted/50" : ""}>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={selectedRows.has(sale.id)}
+                              onCheckedChange={(checked) => handleRowSelect(sale.id, checked === true)}
+                              aria-label={`Select sale for ${sale.clientName}`}
+                            />
+                          </TableCell>
+                          <TableCell>{format(new Date(sale.date), "yyyy-MM-dd")}</TableCell>
+                          <TableCell>{sale.clientName}</TableCell>
+                          <TableCell>${sale.amount.toFixed(2)}</TableCell>
+                          <TableCell>{sale.method}</TableCell>
+                          <TableCell>{sale.note}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => openEditDialog(sale)}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openDeleteDialog(sale)}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {sales.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center">
+                            No sales records found.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
