@@ -836,13 +836,15 @@ const handleSelectChange = async (name: string, value: string) => {
         <Label htmlFor="date">Date</Label>
         <Input id="date" name="date" type="date" value={formData.date} onChange={handleInputChange} />
       </div>
-      <div className="grid gap-2">
+      <div className="grid sm:grid-cols-2 gap-5 space-y-1">
+
+      <div className="grid gap-2 min-w-full">
         <Label htmlFor="clientId">Client</Label>
         <Select
           value={formData.clientId}
           onValueChange={(value) => handleSelectChange("clientId", value)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select a client" />
           </SelectTrigger>
           <SelectContent>
@@ -855,10 +857,6 @@ const handleSelectChange = async (name: string, value: string) => {
         </Select>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="amount">Amount ($)</Label>
-        <Input id="amount" name="amount" value={formData.amount} onChange={handleInputChange} />
-      </div>
-      <div className="grid gap-2">
         <Label htmlFor="clientRate">Client Rate ($)</Label>
         <Input 
           id="clientRate" 
@@ -868,6 +866,12 @@ const handleSelectChange = async (name: string, value: string) => {
           placeholder="Default from client settings" 
         />
       </div>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="amount">Amount ($)</Label>
+        <Input id="amount" name="amount" value={formData.amount} onChange={handleInputChange} />
+      </div>
+
       <div className="grid gap-2">
         <Label htmlFor="method">Payment Method</Label>
         <Select value={formData.method} onValueChange={(value) => handleSelectChange("method", value)}>
